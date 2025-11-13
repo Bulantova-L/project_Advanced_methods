@@ -1,0 +1,6 @@
+{
+  "haplotype_methylation_workflow.gene_bed": "data/genes.bed",
+  "haplotype_methylation_workflow.maternal_methylation_bed": "data/methylation_maternal.bed",
+  "haplotype_methylation_workflow.paternal_methylation_bed": "data/methylation_paternal.bed",
+  "haplotype_methylation_workflow.summary_script": "scripts/gene_methylation_summary.py"
+}
