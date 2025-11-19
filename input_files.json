@@ -1,6 +1,6 @@
 {
-  "haplotype_methylation_workflow.gene_bed": "data/genes.bed",
-  "haplotype_methylation_workflow.maternal_methylation_bed": "data/methylation_maternal.bed",
-  "haplotype_methylation_workflow.paternal_methylation_bed": "data/methylation_paternal.bed",
-  "haplotype_methylation_workflow.summary_script": "scripts/gene_methylation_summary.py"
+  "haplotype_methylation_workflow.gene_bed_maternal": "/home/lucka/Advanced_Bioinformatics/project/data/maternal.bed",
+  "haplotype_methylation_workflow.gene_bed_paternal": "/home/lucka/Advanced_Bioinformatics/project/data/paternal.bed",
+  "haplotype_methylation_workflow.full_methylation_bed": "/home/lucka/Advanced_Bioinformatics/project/data/Q100_ONT_5mC_HG002v1.1_winnowmap_q10_10kb_modkit5mC.bed",
+  "haplotype_methylation_workflow.summary_script": "/home/lucka/Advanced_Bioinformatics/project/scripts/gene_methylation_summary.py"
 }
