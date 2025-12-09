@@ -1,7 +1,10 @@
 PV269 Advanced methods in Bioinformatics - project.odp
 notes.docx
 ~$PV269 Advanced methods in Bioinformatics - project.odp
-data/
 cromwell*/
 presentation_notes.docx
 run.log
+logs/
+results/
+.snakemake/
+
