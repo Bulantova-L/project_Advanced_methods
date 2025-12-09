@@ -1,96 +1,90 @@
 import pandas as pd
 import numpy as np
-from scipy.stats import wilcoxon, ttest_rel
-from statsmodels.stats.multitest import multipletests
+from scipy.stats import wilcoxon
 import matplotlib.pyplot as plt
 import seaborn as sns
+from matplotlib.backends.backend_pdf import PdfPages
+
+
+analysis_type = snakemake.wildcards.type
 
 df = pd.read_csv(snakemake.input["summary"], sep="\t")
 
-# ================================
-# Step 3: Methylation Quantification
-# ================================
-maternal = df["Maternal_Methylation"]
-paternal = df["Paternal_Methylation"]
+# Convert methylation columns to numeric
+df["Maternal_Methylation"] = pd.to_numeric(df["Maternal_Methylation"], errors="coerce")
+df["Paternal_Methylation"] = pd.to_numeric(df["Paternal_Methylation"], errors="coerce")
 
-# Difference
 df["Difference"] = df["Maternal_Methylation"] - df["Paternal_Methylation"]
 
-# ================================
-# Step 4: Statistical Analysis
-# ================================
+# Remove rows where either is missing
+paired = df.dropna(subset=["Maternal_Methylation", "Paternal_Methylation"]).copy()
 
-# Wilcoxon Signed-Rank Test
-wilcoxon_pvals = []
-t_test_pvals   = []
+x = paired["Maternal_Methylation"]
+y = paired["Paternal_Methylation"]
 
-for m, p in zip(maternal, paternal):
-    # Wilcoxon (paired nonparametric)
-    try:
-        w_p = wilcoxon([m], [p]).pvalue
-    except:
-        w_p = np.nan
+# Compute difference
+paired["Difference"] = x - y
 
-    # Paired t-test
-    try:
-        t_p = ttest_rel([m], [p]).pvalue
-    except:
-        t_p = np.nan
+# ---------- Correct Wilcoxon test ----------
+if len(paired) == 0:
+    wilcoxon_stat, wilcoxon_p = None, None
+elif (paired["Difference"] == 0).all():
+    wilcoxon_stat, wilcoxon_p = 0.0, 1.0   # all ties → uninformative
+else:
+    res = wilcoxon(x, y)
+    wilcoxon_stat, wilcoxon_p = res.statistic, res.pvalue
 
-    wilcoxon_pvals.append(w_p)
-    t_test_pvals.append(t_p)
+# Save results table
+paired.to_csv(snakemake.output["results_table"], sep="\t", index=False)
+paired.to_excel(snakemake.output["results_xlsx"], index=False)
 
-df["Wilcoxon_p"] = wilcoxon_pvals
-df["Ttest_p"] = t_test_pvals
+# ===============================
+#            PLOTS
+# ===============================
 
-# Multiple testing correction
-df["Wilcoxon_fdr"] = multipletests(df["Wilcoxon_p"], method="fdr_bh")[1]
-df["Ttest_fdr"] = multipletests(df["Ttest_p"], method="fdr_bh")[1]
+wilcoxon_label = f"Wilcoxon p = {wilcoxon_p:.3e}" if wilcoxon_p is not None else "Wilcoxon NA"
 
-df.to_csv(snakemake.output["results_table"], sep="\t", index=False)
+pdf_path = snakemake.output["pdf"]   # add to your rule outputs
 
-print("Saved statistics table:", snakemake.output["results_table"])
+with PdfPages(pdf_path) as pdf:
 
-# ================================
-# Step 5: Visualization
-# ================================
+    # -------- Scatter plot --------
+    plt.figure(figsize=(7,7))
+    sns.scatterplot(x=y, y=x, edgecolor=None)
+    plt.xlabel("Paternal Methylation")
+    plt.ylabel("Maternal Methylation")
+    plt.title(f"Maternal vs Paternal {analysis_type}\n{wilcoxon_label}")
+    plt.savefig(snakemake.output["scatter"], dpi=300)
+    plt.close()
 
-# -------- Scatter plot --------
-plt.figure(figsize=(7,7))
-sns.scatterplot(
-    x=df["Paternal_Methylation"],
-    y=df["Maternal_Methylation"],
-    edgecolor=None
-)
-plt.xlabel("Paternal methylation")
-plt.ylabel("Maternal methylation")
-plt.title("Maternal vs Paternal Methylation per Gene")
-plt.savefig(snakemake.output["scatter"], dpi=300)
-plt.close()
+    # -------- Boxplot --------
+    plt.figure(figsize=(6,6))
+    sns.boxplot(data=paired[["Maternal_Methylation", "Paternal_Methylation"]])
+    plt.ylabel("Methylation Score")
+    plt.title(f"Distribution of {analysis_type} Levels\n{wilcoxon_label}")
+    plt.savefig(snakemake.output["boxplot"], dpi=300)
+    plt.close()
+    
+    # ----- Histogram of differences -----
+    plt.figure(figsize=(6,6))
+    sns.histplot(df["Difference"].dropna(), kde=True, bins=50)
+    plt.xlabel("Maternal - Paternal Methylation")
+    plt.title(f"Distribution of Differences in {analysis_type}\n{wilcoxon_label}")
+    plt.savefig(snakemake.output["histogram"], dpi=300)
+    plt.close()
+    
+    # -------- Bland–Altman plot --------
+    mean_vals = (x + y) / 2
+    diff_vals = x - y
 
-# -------- Volcano plot --------
-plt.figure(figsize=(8,7))
-sns.scatterplot(
-    x=df["Difference"],
-    y=-np.log10(df["Wilcoxon_p"]),
-    edgecolor=None
-)
-plt.xlabel("Maternal - Paternal methylation")
-plt.ylabel("-log10(Wilcoxon p-value)")
-plt.title("Volcano Plot of Methylation Differences")
-plt.savefig(snakemake.output["volcano"], dpi=300)
-plt.close()
+    plt.figure(figsize=(7,6))
+    sns.scatterplot(x=mean_vals, y=diff_vals, alpha=0.6)
+    plt.axhline(0, color="red", linestyle="--")
+    plt.xlabel("Mean Methylation")
+    plt.ylabel("Maternal − Paternal")
+    plt.title(f"Bland–Altman Plot of {analysis_type}\n{wilcoxon_label}")
+    pdf.savefig(); plt.close()
 
-# -------- Boxplot --------
-plt.figure(figsize=(6,6))
-data = pd.DataFrame({
-    "Maternal": maternal,
-    "Paternal": paternal
-})
-sns.boxplot(data=data)
-plt.title("Distribution of Methylation Levels")
-plt.ylabel("Methylation score")
-plt.savefig(snakemake.output["boxplot"], dpi=300)
-plt.close()
-
+print("Wilcoxon statistic:", wilcoxon_stat)
+print("Wilcoxon p-value:", wilcoxon_p)
 print("Plots saved.")

@@ -119,12 +119,12 @@ rule map_methylation:
 
 rule filter_low_cpg:
     input:
-        "results/methylation/{parent}_gene_methylation.bed"
+        "results/methylation/{parent}_gene_methylation_raw.bed"
     output:
         "results/methylation/{parent}_gene_methylation_filtered.bed"
     shell:
         r"""
-        awk -v N={FILTER_CPG} 'BEGIN{OFS="\t"} $6 > N' {input} > {output}
+        awk 'BEGIN{{OFS="\t"}} $6 > 10 {{print $0}}' {input} > {output}
         """
 
 # rule normalize_methylation:

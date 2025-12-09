@@ -7,4 +7,10 @@ run.log
 logs/
 results/
 .snakemake/
-
+data/
+id*
+tests.ipynb
+PV269_project*
+envs/ssh.yml
+envs/tabix.yml
+ 
