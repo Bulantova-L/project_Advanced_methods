@@ -77,25 +77,6 @@ rule extract_genes_coordinates:
         > {output}
         """
 
-# INTERSECT WITH GENES COORDINATES
-
-#rule intersect_parent:
-#    input:
-#        methylation = "results/split/{parent}_methylation.bed",
-#        genes       = "data/{parent}_genes.bed"
-#    output:
-#        overlap = "results/intersect/{parent}_overlap.bed"
-#    conda:
-#        "envs/bedtools.yml"
-#    shell:
-#        """
-#        bedtools intersect \
-#            -a {input.genes} \
-#            -b {input.methylation} \
-#            -wa -wb \
-#            > {output.overlap}
-#        """
-
 # MEAN METHYLATION PER GENE
 
 rule map_methylation:
@@ -126,24 +107,6 @@ rule filter_low_cpg:
         r"""
         awk 'BEGIN{{OFS="\t"}} $6 > 10 {{print $0}}' {input} > {output}
         """
-
-# rule normalize_methylation:
-#     input:
-#         "results/methylation/{parent}_gene_methylation.bed"
-#     output:
-#         "results/methylation_normalized/{parent}_gene_methylation_normalized.bed"
-#     shell:
-#         r"""
-#         awk 'BEGIN{{OFS="\t"}} 
-#             {{
-#                 len = $3 - $2;                 # gene length
-#                 mean = $5;                     # mean methylation value
-#                 count = $6;                    # number of methylated CpGs
-#                 density = (count/len)*1000;    # CpGs per kb
-
-#                 print $1,$2,$3,$4,mean,count,len,density
-#             }}' {input} > {output}
-#         """
 
 # MERGE TABLES both methylation and normalized methylation
 rule merge_methylation_tables:
