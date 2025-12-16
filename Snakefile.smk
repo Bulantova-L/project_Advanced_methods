@@ -22,19 +22,26 @@ rule all:
         #expand("results/intersect/{parent}_overlap.bed", parent=PARENTS),
         expand("results/{type}/{parent}_gene_{type}.bed", parent=PARENTS, type=TYPES),
         expand("results/stats/{type}_stats.tsv", type=TYPES),
+        expand("results/summary/{type}_summary.tsv", type=TYPES),
+        expand("results/stats/{type}_stats_top100.tsv", type=TYPES)
 
-rule download_data:
+rule download_methylation_data:
     output:
-        methylation_bed=INPUT_METHYLATION_BED,
+        methylation_bed=INPUT_METHYLATION_BED
+    shell:
+        """
+        wget -O {output.methylation_bed} https://public.gi.ucsc.edu/~mcechova/HG002/Q100_ONT_5mC_HG002v1.1_winnowmap_q10_10kb_modkit5mC.bed
+        """
+rule download_annotation_data:
+    output:
         maternal_bed=MATERNAL_GENE_BED,
         paternal_bed=PATERNAL_GENE_BED
     shell:
         """
-        wget -O {output.methylation_bed} https://public.gi.ucsc.edu/~mcechova/HG002/Q100_ONT_5mC_HG002v1.1_winnowmap_q10_10kb_modkit5mC.bed
-        wget -O {output.maternal_bed} https://is.muni.cz/auth/www/bulantova.l/pv269_project/maternal_genes.bed?lang=en
-        wget -O {output.paternal_bed} https://is.muni.cz/auth/www/bulantova.l/pv269_project/paternal_genes.bed?lang=en
+        wget -O {output.maternal_bed} https://is.muni.cz/www/bulantova.l/pv269_project/maternal.bed?lang=en;stahnout=1;dk=rRwhcRTd
+        wget -O {output.paternal_bed} https://is.muni.cz/www/bulantova.l/pv269_project/paternal.bed?lang=en;stahnout=1;dk=T2qlS5XN
         """
-
+    
 #######################################
 # SPLIT HAPLOTYPES
 #######################################
@@ -100,7 +107,7 @@ rule map_methylation:
 
 rule filter_low_cpg:
     input:
-        "results/methylation/{parent}_gene_methylation_raw.bed"
+        "results/methylation/{parent}_gene_methylation.bed"
     output:
         "results/methylation/{parent}_gene_methylation_filtered.bed"
     shell:
@@ -118,13 +125,22 @@ rule merge_methylation_tables:
     shell:
         r"""
         awk 'BEGIN {{ OFS="\t" }}
-            NR==FNR {{ mat[$4]=$5; next }}       # maternal
+            # Load maternal: save methylation + count
+            NR==FNR {{
+                mat_meth[$4] = $5;
+                mat_count[$4] = $6;
+                next
+            }}
+            # Process paternal
             {{
-                pat=$5
-                if ($4 in mat)                   # only keep genes found in BOTH M and P
-                    print $4, mat[$4], pat
+                pat_meth = $5;
+                pat_count = $6;
+                gene = $4;
+
+                if (gene in mat_meth)
+                    print gene, mat_meth[gene], pat_meth, mat_count[gene], pat_count;
             }}' {input.maternal} {input.paternal} \
-        | sed '1iGene_ID\tMaternal_Methylation\tPaternal_Methylation' \
+        | sed '1iGene_ID\tMaternal_Methylation\tPaternal_Methylation\tMaternal_Count\tPaternal_Count' \
         > {output}
         """
 
@@ -134,12 +150,16 @@ rule stats_and_plots:
     output:
         results_table="results/stats/{type}_stats.tsv",
         results_xlsx = "results/stats/{type}_stats.xlsx",
+        results_table_top100="results/stats/{type}_stats_top100.tsv",
+        results_xlsx_top100 = "results/stats/{type}_stats_top100.xlsx",
         histogram="results/plots/{type}_histogram.png",
         scatter="results/plots/{type}_scatter.png",
         boxplot="results/plots/{type}_boxplot.png",
         pdf="results/plots/{type}_combined_plots.pdf",
+        piechart="results/plots/{type}_piechart.png"
 
     conda:
         "envs/stats.yml"       # must contain pandas, scipy, statsmodels, seaborn, matplotlib
     script:
         "scripts/stats_and_plots.py"
+

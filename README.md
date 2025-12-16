@@ -9,12 +9,14 @@ A Snakemake workflow for **haplotype-resolved methylation analysis**.
 
 This workflow:
 
-1. Splits methylation calls into **maternal** and **paternal** haplotypes and sorts them (rule split_haplotypes_and_sort)
+1. Downloads methylation data and annotations.
+2. Splits methylation calls into **maternal** and **paternal** haplotypes and sorts them (rule split_haplotypes_and_sort)
 2. Extract gene coordinates from files maternal_genes.bed and paternal_genes.bed (rule extract_genes_coordinates)
-4. Calculates mean methylations for all genes. (rule map_methylation)
-5. Normalization of the
-4. Generates a **summary table**  
-5. Uses **conda environments** automatically (no Docker required)
+3. Calculates mean methylations for all genes. (rule map_methylation, using bedtools map)
+4. Generates a **summary table** and **summary table** for 100 most different genes -> results/stats/
+5. Creates plots for difference in haplotypes -> results/plots
+
+Uses **conda environments** automatically (no Docker required)
 
 ---
 
@@ -29,7 +31,7 @@ To run this workflow, you need:
 
 We strongly recommend **MambaForge** for fast environment solves.
 
-The inputs annotation beds for this pipeline (maternal.bed, paternal.bed) are available in [IS folder](https://is.muni.cz/auth/www/bulantova.l/pv269_project/). We need also 5mC methylation data from ONT: Q100_ONT_5mC_HG002v1.1_winnowmap_q10_10kb_modkit5mC, which are available in this [methylation foldes](https://public.gi.ucsc.edu/~mcechova/HG002/). You can download it manually, or first should do it for you. 
+The inputs annotation beds for this pipeline (maternal.bed, paternal.bed) are available in [IS folder](https://is.muni.cz/auth/www/bulantova.l/pv269_project/). We need also 5mC methylation data from ONT: Q100_ONT_5mC_HG002v1.1_winnowmap_q10_10kb_modkit5mC, which are available in this [methylation foldes](https://public.gi.ucsc.edu/~mcechova/HG002/). You can download it manually, or first rule should do it for you. 
 
 ## 🟦 1. Install Conda / Mamba
 
@@ -78,21 +80,27 @@ Snakefile.smk
 envs/
     bedtools.yml
     python.yml
+    stats.yml
 scripts/
-    compute_mean_methylation.py
+    stats_and_plots.py
 data/
     Q100_ONT_5mC_HG002v1.1_winnowmap_q10_10kb_modkit5mC.bed
+    maternal.bed
+    paternal.bed 
 results/
+    mapped/
+    methylation/
+    plots/
     split/
-    intersect/
-    summarize/
+    stats/
+    summary/
 logs/
 ```
 
 ---
 
 ## ▶️ 4. Running the Workflow
-Snakemake doesn´t run whole pipeline, if outputs are already there, to rerun all add --forcerun all, or delete the results folder. 
+
 ### Dry-run (recommended)
 
 ```bash
@@ -120,6 +128,8 @@ Run and save a timestamped log:
 ```bash
 snakemake --snakefile Snakefile.smk --cores 20 --use-conda &> logs/run_$(date +%Y%m%d_%H%M).log
 ```
+
+If outputs of some rules are already present, Snakemake doesn´t run whole pipeline. To rerun all add --forcerun all, or delete the results folder. If you want to rerun just some part --forcerun extract_genes_coordinates will rerun rule and all the following.
 
 ---
 
